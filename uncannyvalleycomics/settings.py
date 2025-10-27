@@ -40,7 +40,7 @@ FRONTEND_URL = os.environ.get("FRONTEND_URL", "http://127.0.0.1:5173")
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.getenv("DEBUG", "False") == "True"
 
-ALLOWED_HOSTS = ["uncannyvalleycomicsbackend.onrender.com"]
+ALLOWED_HOSTS = ["uncanny-valley-comics-backend.onrender.com"]
 
 
 # Application definition
@@ -320,13 +320,15 @@ CORS_ALLOW_CREDENTIALS = True
 CORS_ALLOWED_ORIGINS = [
     "http://127.0.0.1:5173",
     "http://localhost:5173",
-    "https://uncannyvalleycomicsbackend.onrender.com"
+    "https://uncannyvalleycomicsbackend.onrender.com",
+    "https://uncanny-valley-comics-backend.onrender.com"
 ]
 
 CSRF_TRUSTED_ORIGINS = [
     "http://127.0.0.1:5173",
     "http://localhost:5173",
-    "https://uncannyvalleycomicsbackend.onrender.com"
+    "https://uncannyvalleycomicsbackend.onrender.com",
+    "https://uncanny-valley-comics-backend.onrender.com"
 ]
 
 SESSION_COOKIE_SAMESITE = "Lax"
