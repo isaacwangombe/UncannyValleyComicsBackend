@@ -8,6 +8,8 @@ from django.contrib.auth import get_user_model
 from django.utils import timezone
 from datetime import timedelta
 from analytics.models import Visitor
+from django.http import JsonResponse
+
 
 from orders.models import Order
 from products.models import Product
@@ -156,3 +158,4 @@ class AnalyticsViewSet(viewsets.ViewSet):
         monthly = Visitor.objects.filter(visited_at__gte=since_month).count()
 
         return Response({"daily": daily, "monthly": monthly})
+

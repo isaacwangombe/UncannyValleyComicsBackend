@@ -8,6 +8,7 @@ from users.views import google_login_redirect
 from accounts.views import CustomUserDetailsView, CustomUserAdminViewSet
 from django.conf import settings
 from django.conf.urls.static import static
+from . import views
 
 
 router = DefaultRouter()
@@ -24,6 +25,8 @@ router.register(r'product-images', ProductImageViewSet, basename='productimage')
 urlpatterns = [
     path("admin/", admin.site.urls),
     path("api/auth/user/", CustomUserDetailsView.as_view(), name="rest_user_details"),
+
+    path("api/health/", views.health_check, name="health_check"),
 
     #  Download sample Excel for bulk upload
     path("api/products/download-sample-excel/", download_sample_excel, name="download-sample-excel"),

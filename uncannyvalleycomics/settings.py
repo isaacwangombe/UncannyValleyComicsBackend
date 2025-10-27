@@ -40,7 +40,7 @@ FRONTEND_URL = os.environ.get("FRONTEND_URL", "http://127.0.0.1:5173")
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.getenv("DEBUG", "False") == "True"
 
-ALLOWED_HOSTS = ["uncanny-valley-comics-backend.onrender.com"]
+ALLOWED_HOSTS = ["127.0.0.1", "localhost", ".onrender.com","uncanny-valley-comics-backend.onrender.com"]
 
 
 # Application definition
