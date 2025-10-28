@@ -293,11 +293,11 @@ EMAIL_FAIL_SILENTLY = False
 # LOGOUT_REDIRECT_URL = f"{FRONTEND_URL}/"
 # ACCOUNT_LOGOUT_REDIRECT_URL = f"{FRONTEND_URL}/"
 
-FRONTEND_URL = "http://127.0.0.1:5173"
-LOGIN_REDIRECT_URL = "/accounts/profile"
-LOGOUT_REDIRECT_URL = "http://127.0.0.1:5173"
-ACCOUNT_LOGOUT_REDIRECT_URL = "http://127.0.0.1:5173"
-ACCOUNT_SIGNUP_REDIRECT_URL = "http://127.0.0.1:5173"
+FRONTEND_URL = os.getenv('FRONTEND_URL')
+LOGIN_REDIRECT_URL = FRONTEND_URL
+LOGOUT_REDIRECT_URL = FRONTEND_URL
+ACCOUNT_LOGOUT_REDIRECT_URL = FRONTEND_URL
+ACCOUNT_SIGNUP_REDIRECT_URL = FRONTEND_URL
 
 LOGGING = {
     "version": 1,
@@ -322,20 +322,24 @@ CORS_ALLOWED_ORIGINS = [
     "http://127.0.0.1:5173",
     "http://localhost:5173",
     "https://uncannyvalleycomicsbackend.onrender.com",
-    "https://uncanny-valley-comics-backend.onrender.com"
+    "https://uncanny-valley-comics-backend.onrender.com",
+    "https://uncannyvalleycomics.netlify.app",
+
 ]
 
 CSRF_TRUSTED_ORIGINS = [
     "http://127.0.0.1:5173",
     "http://localhost:5173",
     "https://uncannyvalleycomicsbackend.onrender.com",
-    "https://uncanny-valley-comics-backend.onrender.com"
+    "https://uncanny-valley-comics-backend.onrender.com",
+    "https://uncannyvalleycomics.netlify.app",
 ]
 
 SESSION_COOKIE_SAMESITE = "Lax"
 CSRF_COOKIE_SAMESITE = "Lax"
-SESSION_COOKIE_SECURE = False
-CSRF_COOKIE_SECURE = False
+
+SESSION_COOKIE_SECURE =  os.getenv('SESSION_COOKIE_SECURE')
+CSRF_COOKIE_SECURE =  os.getenv('CSRF_COOKIE_SECURE')
 
 logging.getLogger("allauth").setLevel("DEBUG")
 logging.getLogger("allauth").addHandler(logging.StreamHandler())
