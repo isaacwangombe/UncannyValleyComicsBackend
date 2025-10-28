@@ -341,6 +341,33 @@ CSRF_COOKIE_SAMESITE = "Lax"
 SESSION_COOKIE_SECURE =  os.getenv('SESSION_COOKIE_SECURE')
 CSRF_COOKIE_SECURE =  os.getenv('CSRF_COOKIE_SECURE')
 
+# --- Prevent allauth cache confusion ---
+from django.apps import apps
+from django.db import connection
+
+if connection.settings_dict.get("NAME"):
+    try:
+        SocialApp = apps.get_model("socialaccount", "SocialApp")
+        Site = apps.get_model("sites", "Site")
+        from django.conf import settings
+
+        site = Site.objects.get(id=settings.SITE_ID)
+        apps_qs = SocialApp.objects.filter(provider="google")
+        if apps_qs.count() > 1:
+            print("⚠️ Found multiple Google apps — cleaning up.")
+            apps_qs.exclude(id=apps_qs.first().id).delete()
+        app = apps_qs.first()
+        if app and site not in app.sites.all():
+            app.sites.set([site])
+        # Clear potential cached site-app lookups
+        from allauth.socialaccount import app_settings
+        if hasattr(app_settings, "_apps"):
+            app_settings._apps = {}
+        print("✅ SocialApp sanity check complete.")
+    except Exception as e:
+        print("⚠️ SocialApp sanity check skipped:", e)
+
+
 logging.getLogger("allauth").setLevel("DEBUG")
 logging.getLogger("allauth").addHandler(logging.StreamHandler())
 
@@ -348,20 +375,4 @@ logging.getLogger("allauth").addHandler(logging.StreamHandler())
 STATIC_ROOT = BASE_DIR / "staticfiles"
 
 
-# from django.contrib.sites.models import Site
-# from allauth.socialaccount.models import SocialApp
 
-# def fix_google_socialapp():
-#     try:
-#         site = Site.objects.get(id=1)
-#         google_apps = SocialApp.objects.filter(provider='google')
-#         if google_apps.count() > 1:
-#             # keep the first, delete others
-#             google_apps.exclude(id=google_apps.first().id).delete()
-#         app = google_apps.first()
-#         if site not in app.sites.all():
-#             app.sites.add(site)
-#     except Exception as e:
-#         print("SocialApp fix skipped:", e)
-
-# fix_google_socialapp()
