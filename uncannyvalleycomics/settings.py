@@ -83,7 +83,7 @@ MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",  # ⬆ must come first
     "corsheaders.middleware.CorsMiddleware",          # ⬆ must come right after security
     "whitenoise.middleware.WhiteNoiseMiddleware",
-    "users.middleware.ClearAllauthCacheMiddleware",
+    'users.middleware.AssignGuestIdMiddleware',
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
