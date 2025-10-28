@@ -257,8 +257,8 @@ SOCIALACCOUNT_EMAIL_REQUIRED = True
 SOCIALACCOUNT_STORE_TOKENS = True
 
 # Optional — skip signup form, but check email match
-# SOCIALACCOUNT_ADAPTER = "users.adapters.SafeSocialAccountAdapter"
-SOCIALACCOUNT_ADAPTER = "users.debug_adapter.DebugSocialAccountAdapter"
+SOCIALACCOUNT_ADAPTER = "users.adapters.SafeSocialAccountAdapter"
+# SOCIALACCOUNT_ADAPTER = "users.debug_adapter.DebugSocialAccountAdapter"
 
 
 
