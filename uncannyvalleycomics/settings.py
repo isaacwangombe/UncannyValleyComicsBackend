@@ -346,3 +346,22 @@ logging.getLogger("allauth").addHandler(logging.StreamHandler())
 
 
 STATIC_ROOT = BASE_DIR / "staticfiles"
+
+
+from django.contrib.sites.models import Site
+from allauth.socialaccount.models import SocialApp
+
+def fix_google_socialapp():
+    try:
+        site = Site.objects.get(id=1)
+        google_apps = SocialApp.objects.filter(provider='google')
+        if google_apps.count() > 1:
+            # keep the first, delete others
+            google_apps.exclude(id=google_apps.first().id).delete()
+        app = google_apps.first()
+        if site not in app.sites.all():
+            app.sites.add(site)
+    except Exception as e:
+        print("SocialApp fix skipped:", e)
+
+fix_google_socialapp()
