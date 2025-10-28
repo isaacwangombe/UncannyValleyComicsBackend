@@ -7,14 +7,21 @@ from django.shortcuts import redirect
 from django.conf import settings
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.http import JsonResponse
+from django.views.decorators.clickjacking import xframe_options_exempt
+from django.views.decorators.http import require_GET
 
 User = get_user_model()
 
 
+@require_GET
 @ensure_csrf_cookie
+@xframe_options_exempt
 def get_csrf_token(request):
-    """Return a fresh CSRF token (sets cookie)"""
-    return JsonResponse({"detail": "CSRF cookie set."})
+    """Return a fresh CSRF token and set cookie"""
+    response = JsonResponse({"detail": "CSRF cookie set."})
+    response["Access-Control-Allow-Origin"] = "https://uncannyvalleycomics.netlify.app"
+    response["Access-Control-Allow-Credentials"] = "true"
+    return response
 
 
 def google_login_redirect(request):
