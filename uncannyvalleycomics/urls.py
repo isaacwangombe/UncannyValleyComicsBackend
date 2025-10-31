@@ -1,7 +1,7 @@
 from django.urls import path, include
 from django.contrib import admin
 from rest_framework.routers import DefaultRouter
-from products.views import ProductViewSet, CategoryViewSet,ProductImageViewSet, download_sample_excel,bulk_upload_products
+from products.views import ProductViewSet, CategoryViewSet,ProductImageViewSet, download_sample_excel,bulk_upload_products, whoami  
 from orders.views import OrderViewSet, CartViewSet
 from analytics.views import AnalyticsViewSet
 from users.views import google_login_redirect
@@ -23,12 +23,15 @@ router.register(r'product-images', ProductImageViewSet, basename='productimage')
 
 
 urlpatterns = [
+    path("api/whoami/", whoami),
+
     path("admin/", admin.site.urls),
     path("api/auth/user/", CustomUserDetailsView.as_view(), name="rest_user_details"),
 
     path("api/health/", views.health_check, name="health_check"),
 
     #  Download sample Excel for bulk upload
+    
     path("api/products/download-sample-excel/", download_sample_excel, name="download-sample-excel"),
     path("api/products/bulk-upload/", bulk_upload_products, name="bulk-upload-products"),
 

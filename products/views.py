@@ -311,3 +311,13 @@ class CategoryViewSet(viewsets.ModelViewSet):
         category.image = None
         category.save(update_fields=["image"])
         return Response({"detail": "Image deleted successfully."}, status=status.HTTP_200_OK)
+
+
+@api_view(["GET"])
+def whoami(request):
+    return Response({
+        "authenticated": request.user.is_authenticated,
+        "is_staff": request.user.is_staff,
+        "is_superuser": request.user.is_superuser,
+        "username": str(request.user),
+    })
