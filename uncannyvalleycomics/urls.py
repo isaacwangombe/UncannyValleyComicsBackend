@@ -9,7 +9,8 @@ from accounts.views import CustomUserDetailsView, CustomUserAdminViewSet
 from django.conf import settings
 from django.conf.urls.static import static
 from . import views
-
+from django.views.decorators.csrf import csrf_exempt
+from dj_rest_auth.views import LogoutView
 
 router = DefaultRouter()
 router.register(r"products", ProductViewSet)
@@ -24,6 +25,7 @@ router.register(r'product-images', ProductImageViewSet, basename='productimage')
 
 urlpatterns = [
     path("api/whoami/", whoami),
+    path("api/auth/logout/", csrf_exempt(LogoutView.as_view()), name="rest_logout"),
 
     path("admin/", admin.site.urls),
     path("api/auth/user/", CustomUserDetailsView.as_view(), name="rest_user_details"),
