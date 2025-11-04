@@ -101,18 +101,18 @@ MIDDLEWARE = [
 AUTH_USER_MODEL = "users.User"
 
 REST_FRAMEWORK = {
-  "DEFAULT_AUTHENTICATION_CLASSES": (
-      "rest_framework.authentication.SessionAuthentication",   # 👈 Enables login sessions
-      "rest_framework_simplejwt.authentication.JWTAuthentication",  # 👈 Optional, if you also use tokens
-  ),
-  "DEFAULT_PERMISSION_CLASSES": (
-      "rest_framework.permissions.IsAuthenticatedOrReadOnly",
-  ),
-  "DEFAULT_FILTER_BACKENDS": (
-      "django_filters.rest_framework.DjangoFilterBackend",
-      "rest_framework.filters.SearchFilter",
-      "rest_framework.filters.OrderingFilter",
-  ),
+    "DEFAULT_AUTHENTICATION_CLASSES": (
+        "rest_framework_simplejwt.authentication.JWTAuthentication",  # ✅ new primary auth
+        "rest_framework.authentication.SessionAuthentication",        # keep this for Django admin, browsable API, etc.
+    ),
+    "DEFAULT_PERMISSION_CLASSES": (
+        "rest_framework.permissions.IsAuthenticatedOrReadOnly",
+    ),
+    "DEFAULT_FILTER_BACKENDS": (
+        "django_filters.rest_framework.DjangoFilterBackend",
+        "rest_framework.filters.SearchFilter",
+        "rest_framework.filters.OrderingFilter",
+    ),
 }
 
 SIMPLE_JWT = {

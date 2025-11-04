@@ -14,6 +14,7 @@ from dj_rest_auth.views import LogoutView
 from django.http import JsonResponse
 from django.views.decorators.http import require_GET
 from django.views.decorators.csrf import ensure_csrf_cookie
+from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
 
 router = DefaultRouter()
@@ -33,6 +34,9 @@ def get_csrf_token(request):
 
 urlpatterns = [
     path("api/get-csrf/", get_csrf_token),
+
+    path("api/auth/token/", TokenObtainPairView.as_view(), name="token_obtain_pair"),
+    path("api/auth/token/refresh/", TokenRefreshView.as_view(), name="token_refresh"),
 
     path("api/whoami/", whoami),
     path("api/auth/logout/", csrf_exempt(LogoutView.as_view()), name="rest_logout"),
