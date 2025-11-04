@@ -328,7 +328,6 @@ CORS_ALLOWED_ORIGINS = [
     "http://localhost:5173",
     "https://uncanny-valley-comics-backend.onrender.com",
     "https://uncannyvalleycomics.onrender.com",
-    "https://uncannyvalleycomics.netlify.app",
 
 ]
 
@@ -337,7 +336,6 @@ CSRF_TRUSTED_ORIGINS = [
     "http://localhost:5173",
     "https://uncannyvalleycomics.onrender.com",
     "https://uncanny-valley-comics-backend.onrender.com",
-    "https://uncannyvalleycomics.netlify.app",
 ]
 
 
