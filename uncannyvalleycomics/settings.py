@@ -327,14 +327,13 @@ CORS_ALLOWED_ORIGINS = [
     "http://127.0.0.1:5173",
     "http://localhost:5173",
     "https://uncanny-valley-comics-backend.onrender.com",
-    "https://uncannyvalleycomics.onrender.com",
-
+    "https://uncannyvalleycomics-3lmc.onrender.com"
 ]
 
 CSRF_TRUSTED_ORIGINS = [
     "http://127.0.0.1:5173",
     "http://localhost:5173",
-    "https://uncannyvalleycomics.onrender.com",
+    "https://uncannyvalleycomics-3lmc.onrender.com",
     "https://uncanny-valley-comics-backend.onrender.com",
 ]
 
