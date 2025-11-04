@@ -38,6 +38,8 @@ urlpatterns = [
     path("api/auth/token/", TokenObtainPairView.as_view(), name="token_obtain_pair"),
     path("api/auth/token/refresh/", TokenRefreshView.as_view(), name="token_refresh"),
 
+    path("dj-rest-auth/google/", include("allauth.socialaccount.providers.google.urls")),
+
     path("api/whoami/", whoami),
     path("api/auth/logout/", csrf_exempt(LogoutView.as_view()), name="rest_logout"),
 

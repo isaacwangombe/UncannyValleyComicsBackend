@@ -100,10 +100,10 @@ MIDDLEWARE = [
 
 AUTH_USER_MODEL = "users.User"
 
+
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": (
-        "rest_framework_simplejwt.authentication.JWTAuthentication",  # ✅ new primary auth
-        "rest_framework.authentication.SessionAuthentication",        # keep this for Django admin, browsable API, etc.
+        "rest_framework_simplejwt.authentication.JWTAuthentication",
     ),
     "DEFAULT_PERMISSION_CLASSES": (
         "rest_framework.permissions.IsAuthenticatedOrReadOnly",
@@ -115,9 +115,12 @@ REST_FRAMEWORK = {
     ),
 }
 
+REST_USE_JWT = True  # if you use dj-rest-auth
 SIMPLE_JWT = {
-    "ACCESS_TOKEN_LIFETIME": timedelta(hours=7),     # default is 5 minutes
+    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=60),
     "REFRESH_TOKEN_LIFETIME": timedelta(days=7),
+    "AUTH_HEADER_TYPES": ("Bearer",),
+    "AUTH_COOKIE": None,  # ensure it's not mixing cookies
 }
 
 cloudinary.config(
@@ -322,7 +325,6 @@ AUTHENTICATION_BACKENDS = [
     "allauth.account.auth_backends.AuthenticationBackend",  # allauth
 ]
 
-CORS_ALLOW_CREDENTIALS = True
 CORS_ALLOWED_ORIGINS = [
     "http://127.0.0.1:5173",
     "http://localhost:5173",
@@ -331,18 +333,19 @@ CORS_ALLOWED_ORIGINS = [
 ]
 
 CSRF_TRUSTED_ORIGINS = [
-    "http://127.0.0.1:5173",
-    "http://localhost:5173",
-    "https://uncannyvalleycomics-3lmc.onrender.com",
-    "https://uncanny-valley-comics-backend.onrender.com",
+    # "http://127.0.0.1:5173",
+    # "http://localhost:5173",
+    # "https://uncannyvalleycomics-3lmc.onrender.com",
+    # "https://uncanny-valley-comics-backend.onrender.com",
 ]
 
 
 CSRF_COOKIE_SAMESITE = "None"
 SESSION_COOKIE_SAMESITE = "None"
-CSRF_COOKIE_HTTPONLY = False
+CSRF_COOKIE_HTTPONLY = True
 CSRF_COOKIE_SECURE = True
 SESSION_COOKIE_SECURE = True
+CORS_ALLOW_CREDENTIALS = False
 
 
 # ✅ This makes cookies valid across frontend & backend subdomains
