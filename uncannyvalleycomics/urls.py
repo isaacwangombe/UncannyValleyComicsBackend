@@ -11,6 +11,10 @@ from django.conf.urls.static import static
 from . import views
 from django.views.decorators.csrf import csrf_exempt
 from dj_rest_auth.views import LogoutView
+from django.http import JsonResponse
+from django.views.decorators.http import require_GET
+from django.views.decorators.csrf import ensure_csrf_cookie
+
 
 router = DefaultRouter()
 router.register(r"products", ProductViewSet)
@@ -22,8 +26,14 @@ router.register(r"product-images", ProductImageViewSet, basename="product-images
 router.register(r"admin/users", CustomUserAdminViewSet, basename="admin-users")
 router.register(r'product-images', ProductImageViewSet, basename='productimage')
 
+@require_GET
+@ensure_csrf_cookie
+def get_csrf_token(request):
+    return JsonResponse({"csrftoken": request.COOKIES.get("csrftoken")})
 
 urlpatterns = [
+    path("api/get-csrf/", get_csrf_token),
+
     path("api/whoami/", whoami),
     path("api/auth/logout/", csrf_exempt(LogoutView.as_view()), name="rest_logout"),
 
