@@ -4,40 +4,37 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAdminUser
 from django.contrib.auth import get_user_model
 from django.shortcuts import redirect
+from rest_framework_simplejwt.tokens import RefreshToken
 from django.conf import settings
-from django.views.decorators.csrf import ensure_csrf_cookie
-from django.http import JsonResponse
-from django.views.decorators.clickjacking import xframe_options_exempt
-from django.views.decorators.http import require_GET
 
 User = get_user_model()
 
 
-@require_GET
-@ensure_csrf_cookie
-@xframe_options_exempt
-def get_csrf_token(request):
-    """Return a fresh CSRF token and set cookie"""
-    response = JsonResponse({"detail": "CSRF cookie set."})
-    response["Access-Control-Allow-Origin"] = "https://uncannyvalleycomics.onrender.com"
-    response["Access-Control-Allow-Credentials"] = "true"
-    return response
-
-
 def google_login_redirect(request):
     """
-    Redirect users to the frontend after successful Google login.
+    Redirects Google-authenticated users to the frontend
+    with freshly issued JWT tokens.
     """
-    # Use the FRONTEND_URL from settings or default to localhost
-    frontend_url = getattr(settings, "FRONTEND_URL", "http://127.0.0.1:5173")
-    # Redirect to /admin page (you can change to "/" or another route if you prefer)
-    return redirect(frontend_url + "/admin")
+    user = request.user
+
+    if not user.is_authenticated:
+        # Not logged in — redirect to frontend login page with an error
+        return redirect(f"{settings.FRONTEND_URL}/login?error=unauthorized")
+
+    # ✅ Generate JWT tokens for this Google-authenticated user
+    refresh = RefreshToken.for_user(user)
+    access_token = str(refresh.access_token)
+
+    # ✅ Build frontend callback URL (works for both dev & prod)
+    frontend_url = f"{settings.FRONTEND_URL}/auth/callback?access={access_token}&refresh={refresh}"
+
+    return redirect(frontend_url)
 
 
 class UserAdminViewSet(viewsets.ModelViewSet):
     queryset = User.objects.all()
     permission_classes = [IsAdminUser]  # only admins can access this
-    lookup_field = "pk"  # allows URLs like /api/admin/users/5/
+    lookup_field = "pk"
 
     @action(detail=True, methods=["post"])
     def make_staff(self, request, pk=None):
