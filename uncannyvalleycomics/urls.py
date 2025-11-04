@@ -12,7 +12,7 @@ from products.views import (
 from orders.views import OrderViewSet, CartViewSet
 from analytics.views import AnalyticsViewSet
 from accounts.views import CustomUserDetailsView, CustomUserAdminViewSet
-from users.views import google_login_redirect
+from users.views import google_login_redirect, full_logout
 from django.conf import settings
 from django.conf.urls.static import static
 from django.views.decorators.csrf import csrf_exempt
@@ -54,6 +54,7 @@ urlpatterns = [
 
     # 🚪 Logout (handled client-side but exposed for safety)
     path("api/auth/logout/", csrf_exempt(LogoutView.as_view()), name="rest_logout"),
+    path("api/auth/full-logout/", full_logout, name="full_logout"),
 
     # 🩺 Health check
     path("api/health/", lambda request: JsonResponse({"status": "ok"}), name="health_check"),

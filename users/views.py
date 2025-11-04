@@ -1,12 +1,13 @@
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
-from rest_framework.permissions import IsAdminUser
+from rest_framework.permissions import IsAdminUser, AllowAny
 from django.contrib.auth import get_user_model
 from django.shortcuts import redirect
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.conf import settings
-from django.http import HttpResponse
+from django.contrib.auth import logout as django_logout
+from rest_framework.decorators import api_view, permission_classes
 
 
 User = get_user_model()
@@ -29,6 +30,15 @@ def google_login_redirect(request):
 
     return redirect(frontend_url)
 
+@api_view(["POST"])
+@permission_classes([AllowAny])
+def full_logout(request):
+    """Fully log out user and clear session cookies"""
+    django_logout(request)
+    response = JsonResponse({"detail": "Successfully logged out."})
+    response.delete_cookie("sessionid")
+    response.delete_cookie("csrftoken")
+    return response
 
 
 class UserAdminViewSet(viewsets.ModelViewSet):
