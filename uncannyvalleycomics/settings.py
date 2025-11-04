@@ -346,6 +346,9 @@ CSRF_COOKIE_SECURE = True
 SESSION_COOKIE_SECURE = True
 
 
+# ✅ This makes cookies valid across frontend & backend subdomains
+CSRF_COOKIE_DOMAIN = ".onrender.com"
+SESSION_COOKIE_DOMAIN = ".onrender.com"
 
 
 logging.getLogger("allauth").setLevel("DEBUG")
