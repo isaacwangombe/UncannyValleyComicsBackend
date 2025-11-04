@@ -11,24 +11,30 @@ User = get_user_model()
 
 
 def google_login_redirect(request):
-    """
-    Redirects Google-authenticated users to the frontend
-    with freshly issued JWT tokens.
-    """
     user = request.user
 
+    # 🧩 If not logged in via Google
     if not user.is_authenticated:
-        # Not logged in — redirect to frontend login page with an error
         return redirect(f"{settings.FRONTEND_URL}/login?error=unauthorized")
 
-    # ✅ Generate JWT tokens for this Google-authenticated user
-    refresh = RefreshToken.for_user(user)
-    access_token = str(refresh.access_token)
+    # 🪙 Generate JWTs for Google-authenticated user
+    try:
+        refresh = RefreshToken.for_user(user)
+        access_token = str(refresh.access_token)
+        refresh_token = str(refresh)
+    except Exception as e:
+        print("❌ Error generating JWT:", e)
+        return redirect(f"{settings.FRONTEND_URL}/login?error=token_failed")
 
-    # ✅ Build frontend callback URL (works for both dev & prod)
-    frontend_url = f"{settings.FRONTEND_URL}/auth/callback?access={access_token}&refresh={refresh}"
+    # 🧠 Build the exact redirect URL
+    redirect_url = (
+        f"{settings.FRONTEND_URL}/auth/callback"
+        f"?access={access_token}&refresh={refresh_token}"
+    )
 
-    return redirect(frontend_url)
+    print("🔁 Redirecting Google user to:", redirect_url)
+    return redirect(redirect_url)
+
 
 
 class UserAdminViewSet(viewsets.ModelViewSet):
