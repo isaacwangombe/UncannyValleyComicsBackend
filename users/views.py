@@ -19,7 +19,7 @@ User = get_user_model()
 def get_csrf_token(request):
     """Return a fresh CSRF token and set cookie"""
     response = JsonResponse({"detail": "CSRF cookie set."})
-    response["Access-Control-Allow-Origin"] = "https://uncannyvalleycomics.netlify.app"
+    response["Access-Control-Allow-Origin"] = "https://uncannyvalleycomics.onrender.com"
     response["Access-Control-Allow-Credentials"] = "true"
     return response
 
