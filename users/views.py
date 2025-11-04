@@ -6,29 +6,34 @@ from django.contrib.auth import get_user_model
 from django.shortcuts import redirect
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.conf import settings
-from django.http import HttpResponse
-
 
 User = get_user_model()
 
 
 def google_login_redirect(request):
     user = request.user
-    if not user.is_authenticated:
-        return HttpResponse("❌ Not authenticated via Google")
 
+    # 🧩 If not logged in via Google
+    if not user.is_authenticated:
+        return redirect(f"{settings.FRONTEND_URL}/login?error=unauthorized")
+
+    # 🪙 Generate JWTs for Google-authenticated user
     try:
         refresh = RefreshToken.for_user(user)
         access_token = str(refresh.access_token)
         refresh_token = str(refresh)
     except Exception as e:
-        return HttpResponse(f"❌ Error generating tokens: {e}")
+        print("❌ Error generating JWT:", e)
+        return redirect(f"{settings.FRONTEND_URL}/login?error=token_failed")
 
-    frontend_url = f"{settings.FRONTEND_URL}/auth/callback?access={access_token}&refresh={refresh_token}"
+    # 🧠 Build the exact redirect URL
+    redirect_url = (
+        f"{settings.FRONTEND_URL}/auth/callback"
+        f"?access={access_token}&refresh={refresh_token}"
+    )
 
-    # ✅ This confirms your redirect is being called
-    return HttpResponse(f"✅ Redirecting to: {frontend_url}")
-
+    print("🔁 Redirecting Google user to:", redirect_url)
+    return redirect(redirect_url)
 
 
 
