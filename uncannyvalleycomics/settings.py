@@ -325,12 +325,18 @@ AUTHENTICATION_BACKENDS = [
     "allauth.account.auth_backends.AuthenticationBackend",  # allauth
 ]
 
-CORS_ALLOWED_ORIGINS = [
-    "http://127.0.0.1:5173",
-    "http://localhost:5173",
-    "https://uncanny-valley-comics-backend.onrender.com",
-    "https://uncannyvalleycomics-3lmc.onrender.com"
+# CORS_ALLOWED_ORIGINS = [
+#     "http://127.0.0.1:5173",
+#     "http://localhost:5173",
+#     "https://uncanny-valley-comics-backend.onrender.com",
+#     "https://uncannyvalleycomics-3lmc.onrender.com"
+# ]
+
+CORS_ALLOW_HEADERS = [
+    "content-type",
+    "authorization",
 ]
+
 
 CSRF_TRUSTED_ORIGINS = [
     # "http://127.0.0.1:5173",
@@ -345,7 +351,8 @@ SESSION_COOKIE_SAMESITE = "None"
 CSRF_COOKIE_HTTPONLY = True
 CSRF_COOKIE_SECURE = True
 SESSION_COOKIE_SECURE = True
-CORS_ALLOW_CREDENTIALS = False
+CORS_ALLOW_CREDENTIALS = True
+CORS_ALLOW_ALL_ORIGINS = True
 
 
 # ✅ This makes cookies valid across frontend & backend subdomains
