@@ -45,12 +45,13 @@ urlpatterns = [
     path("api/auth/token/", TokenObtainPairView.as_view(), name="token_obtain_pair"),
     path("api/auth/token/refresh/", TokenRefreshView.as_view(), name="token_refresh"),
 
+    # 👤 Current user (used by fetchCurrentUser)
+    path("api/auth/user/", CustomUserDetailsView.as_view(), name="rest_user_details"),
+    
     # 🧩 dj-rest-auth (registration, password reset, etc.)
     path("api/auth/", include("dj_rest_auth.urls")),
     path("api/auth/registration/", include("dj_rest_auth.registration.urls")),
 
-    # 👤 Current user (used by fetchCurrentUser)
-    path("api/auth/user/", CustomUserDetailsView.as_view(), name="rest_user_details"),
 
     # 🚪 Logout (handled client-side but exposed for safety)
     path("api/auth/logout/", csrf_exempt(LogoutView.as_view()), name="rest_logout"),

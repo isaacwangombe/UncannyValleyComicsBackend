@@ -34,15 +34,12 @@ class CustomUserDetailsSerializer(UserDetailsSerializer):
             "role",
         )
 
-    def get_role(self, obj):
-        """
-        Dynamically derive user role hierarchy:
-        Superadmin > Owner > Staff > Customer
-        """
-        if obj.is_superuser:
-            return "Superadmin"
-        elif obj.groups.filter(name="Owner").exists():
-            return "Owner"
-        elif obj.is_staff:
-            return "Staff"
-        return "Customer"
+def get_role(self, obj):
+    print(f"🔍 get_role called for {obj.email}")
+    if obj.is_superuser:
+        return "Superadmin"
+    elif obj.groups.filter(name="Owner").exists():
+        return "Owner"
+    elif obj.is_staff:
+        return "Staff"
+    return "Customer"
