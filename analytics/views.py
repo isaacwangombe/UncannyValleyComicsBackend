@@ -18,18 +18,14 @@ User = get_user_model()
 
 
 class AnalyticsViewSet(viewsets.ViewSet):
-    """
-    Provides admin analytics endpoints:
-    - /api/admin/analytics/stats/
-    - /api/admin/analytics/daily_sales/
-    - /api/admin/analytics/monthly_sales/
-    - /api/admin/analytics/sales_over_time/
-    - /api/admin/analytics/new_users/
-    - /api/admin/analytics/top_products/
-    """
 
     permission_classes = [IsAdminUser]
-
+    def list(self, request):
+        print("🔍 AUTH TEST → user:", request.user)
+        print("🔍 is_authenticated:", request.user.is_authenticated)
+        print("🔍 is_staff:", getattr(request.user, "is_staff", None))
+        print("🔍 is_superuser:", getattr(request.user, "is_superuser", None))
+        return response.Response({"detail": "debug"}, status=status.HTTP_200_OK)
     # -------------------------------------------------------------------------
     # 1️⃣ STATS OVERVIEW
     # -------------------------------------------------------------------------
