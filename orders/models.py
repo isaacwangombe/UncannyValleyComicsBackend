@@ -3,7 +3,7 @@ from django.conf import settings
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 from products.models import Product
-
+from decimal import Decimal
 
 
 class Order(models.Model):
@@ -18,7 +18,7 @@ class Order(models.Model):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL)
     session_key = models.CharField(max_length=40, blank=True, null=True, db_index=True)  # 👈 added
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.PENDING)
-    total = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    total = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal("0.00"))
     shipping_address = models.JSONField(blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -39,15 +39,11 @@ class Order(models.Model):
     def __str__(self):
         who = self.user or f"Guest:{self.session_key[:8]}" if self.session_key else "Guest"
         return f"Order #{self.pk} — {who}"
-    
 
-  # ✅ calculate total from items
     def recalculate_total(self):
         self.total = sum(item.subtotal for item in self.items.all())
         self.save(update_fields=["total"])
 
-
-    # ✅ process payment safely
     @transaction.atomic
     def process_payment(self):
         """Mark order as PAID and adjust stock & sales."""
@@ -66,9 +62,9 @@ class Order(models.Model):
             product.save(update_fields=["stock", "sales_count"])
 
         self.status = self.Status.PAID
-        self.save(update_fields=["status"])   
+        self.save(update_fields=["status"])
 
-    # --- Cart helpers ---
+    # --- Cart helpers --- (unchanged)
     @classmethod
     def get_or_create_cart(cls, user=None, session_key=None):
         """Return (or create) a cart for either user or guest session."""
@@ -141,10 +137,12 @@ class OrderItem(models.Model):
         if self.unit_price is None or self.quantity is None:
             return 0
         return self.unit_price * self.quantity
-    
+
     def save(self, *args, **kwargs):
-        if self.unit_price is None and self.product:
-            self.unit_price = self.product.price
+        # If no unit_price set, use product discounted_price if present else product.price
+        if (not self.unit_price or self.unit_price is None) and self.product:
+            eff = self.product.get_effective_price()
+            self.unit_price = eff if eff is not None else self.product.price
         super().save(*args, **kwargs)
 
 

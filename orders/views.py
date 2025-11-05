@@ -13,13 +13,11 @@ from products.models import Product
 
 from django.shortcuts import get_object_or_404
 from rest_framework.permissions import AllowAny
+from decimal import Decimal
 
 
 
 
-# -----------------------------------------------------------------------------
-# 🧾 ORDER VIEWSET
-# -----------------------------------------------------------------------------
 class OrderViewSet(viewsets.ModelViewSet):
     queryset = Order.objects.all().select_related("user").prefetch_related("items__product")
     serializer_class = OrderCreateSerializer
@@ -64,9 +62,9 @@ class OrderViewSet(viewsets.ModelViewSet):
             return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 
-# -----------------------------------------------------------------------------
+# -------------------------------------------------------------------------
 # 🛒 CART VIEWSET
-# -----------------------------------------------------------------------------
+# -------------------------------------------------------------------------
 
 class CartViewSet(viewsets.ViewSet):
     permission_classes = [AllowAny]
@@ -116,11 +114,13 @@ class CartViewSet(viewsets.ViewSet):
         product = serializer.validated_data["product"]
         quantity = serializer.validated_data["quantity"]
 
+        eff_price = product.get_effective_price() if product.get_effective_price() is not None else product.price
+
         # Only create or update cart item — no stock/sales logic here
         item, created = OrderItem.objects.get_or_create(
             order=cart,
             product=product,
-            defaults={"quantity": quantity, "unit_price": product.price},
+            defaults={"quantity": quantity, "unit_price": eff_price},
         )
 
         if not created:
@@ -173,10 +173,12 @@ class CartViewSet(viewsets.ViewSet):
         product_id = request.data.get("product_id")
 
         product = get_object_or_404(Product, id=product_id)
+        eff_price = product.get_effective_price() if product.get_effective_price() is not None else product.price
+
         item, created = OrderItem.objects.get_or_create(
             order=cart,
             product=product,
-            defaults={"quantity": 1, "unit_price": product.price}
+            defaults={"quantity": 1, "unit_price": eff_price}
         )
         if not created:
             item.quantity += 1
@@ -213,5 +215,3 @@ class CartViewSet(viewsets.ViewSet):
             {"detail": f"Order #{cart.id} checked out successfully!", "order": serializer.data},
             status=200,
         )
-
-

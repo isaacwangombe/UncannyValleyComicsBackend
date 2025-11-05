@@ -14,8 +14,7 @@ import pandas as pd
 import zipfile
 import os
 import requests
-
-
+from decimal import Decimal
 
 # ✅ Product ViewSet
 class ProductViewSet(viewsets.ModelViewSet):
@@ -105,8 +104,25 @@ def bulk_upload_products(request):
                 continue
 
             description = str(row.get("description", "")).strip()
-            price = float(row.get("price", 0))
-            stock = int(row.get("stock", 0))
+            # Accept price, cost, discounted_price (if present)
+            try:
+                price = Decimal(row.get("price", 0)) if not pd.isna(row.get("price")) else Decimal("0.00")
+            except Exception:
+                price = Decimal("0.00")
+            try:
+                cost = Decimal(row.get("cost")) if not pd.isna(row.get("cost")) else None
+            except Exception:
+                cost = None
+            try:
+                discounted_price = Decimal(row.get("discounted_price")) if not pd.isna(row.get("discounted_price")) else None
+            except Exception:
+                discounted_price = None
+
+            try:
+                stock = int(row.get("stock", 0))
+            except Exception:
+                stock = 0
+
             category_slug = str(row.get("category_slug", "")).strip().lower()
             trending = bool(row.get("trending", False))
             sku = str(row.get("sku", "")).strip() or None
@@ -123,6 +139,8 @@ def bulk_upload_products(request):
                 title=title,
                 description=description,
                 price=price,
+                cost=cost,
+                discounted_price=discounted_price,
                 stock=stock,
                 category=category,
                 is_active=stock > 0,
@@ -134,7 +152,7 @@ def bulk_upload_products(request):
             image_field = row.get("images", None)
 
             # 🪄 If no images column, try auto-link by SKU prefix
-            if not image_field and zip_images and sku:
+            if (not image_field) and zip_images and sku:
                 possible = [k for k in zip_images.keys() if k.startswith(sku.lower())]
                 if possible:
                     image_field = ",".join(possible)
@@ -164,7 +182,6 @@ def bulk_upload_products(request):
                                     public_id=os.path.splitext(file_obj.name)[0],
                                     overwrite=True,
                                     transformation=[{"quality": "auto:eco", "fetch_format": "auto", "width": 1200, "crop": "limit"}],
-
                                 )
                                 ProductImage.objects.create(
                                     product=product, image=upload_result["secure_url"]

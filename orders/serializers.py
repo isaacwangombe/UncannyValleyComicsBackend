@@ -3,6 +3,7 @@ from django.db import transaction
 from .models import Order, OrderItem
 from products.models import Product
 from products.serializers import ProductSerializer
+from decimal import Decimal
 
 
 # ----------------------------
@@ -33,12 +34,12 @@ class OrderCreateSerializer(serializers.Serializer):
 
         with transaction.atomic():
             order = Order.objects.create(user=user, status=Order.Status.PENDING, **validated_data)
-            total = 0
+            total = Decimal("0.00")
             for it in items:
                 product = Product.objects.select_for_update().get(pk=it["product_id"])
                 if product.stock < it["quantity"]:
                     raise serializers.ValidationError(f"Not enough stock for {product.title}.")
-                unit_price = product.price
+                unit_price = product.get_effective_price() if product.get_effective_price() is not None else product.price
                 OrderItem.objects.create(
                     order=order,
                     product=product,

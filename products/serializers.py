@@ -34,10 +34,14 @@ class ProductImageSerializer(serializers.ModelSerializer):
 
         return data
 
+
 class ProductSerializer(serializers.ModelSerializer):
     # make category writable by using its primary key
     category = serializers.PrimaryKeyRelatedField(queryset=Category.objects.all())
     images = ProductImageSerializer(many=True, read_only=True)
+
+    # Add a read-only computed field for the effective price
+    effective_price = serializers.SerializerMethodField(read_only=True)
 
     class Meta:
         model = Product
@@ -50,26 +54,39 @@ class ProductSerializer(serializers.ModelSerializer):
             "is_active",
             "sales_count",
             "price",
+            "cost",               # NEW
+            "discounted_price",   # NEW
+            "effective_price",    # NEW read-only
             "stock",
             "attributes",
             "trending",
             "images",
         )
-        read_only_fields = ("slug", "sales_count")
+        read_only_fields = ("slug", "sales_count", "effective_price")
+
+    def get_effective_price(self, obj):
+        return obj.get_effective_price()
 
     def validate(self, attrs):
+        # ensure active product can't have 0 stock
         if attrs.get("is_active") and attrs.get("stock", 0) <= 0:
             raise serializers.ValidationError(
                 "Cannot activate a product with zero stock."
             )
+        # If discounted_price provided make sure it's not greater than price
+        dp = attrs.get("discounted_price", None)
+        price = attrs.get("price", None)
+        if dp is not None and price is not None and dp > price:
+            raise serializers.ValidationError("discounted_price cannot be greater than price.")
         return attrs
-    
+
     def create(self, validated_data):
         # auto-generate slug if missing
         if not validated_data.get("slug"):
             from django.utils.text import slugify
             validated_data["slug"] = slugify(validated_data["title"])
         return super().create(validated_data)
+
 
 
 class CategorySerializer(serializers.ModelSerializer):
