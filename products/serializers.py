@@ -39,6 +39,7 @@ class ProductSerializer(serializers.ModelSerializer):
     # make category writable by using its primary key
     category = serializers.PrimaryKeyRelatedField(queryset=Category.objects.all())
     images = ProductImageSerializer(many=True, read_only=True)
+    category_obj = serializers.SerializerMethodField()
 
     # Add a read-only computed field for the effective price
     effective_price = serializers.SerializerMethodField(read_only=True)
@@ -66,6 +67,18 @@ class ProductSerializer(serializers.ModelSerializer):
 
     def get_effective_price(self, obj):
         return obj.get_effective_price()
+    
+    def get_category_obj(self, obj):
+        """Return both subcategory and main category info."""
+        cat = obj.category
+        if not cat:
+            return None
+        return {
+            "id": cat.id,
+            "name": cat.name,
+            "parent": cat.parent.id if cat.parent else None,
+            "parent_name": cat.parent.name if cat.parent else None,
+        }
 
     def validate(self, attrs):
         # ensure active product can't have 0 stock
