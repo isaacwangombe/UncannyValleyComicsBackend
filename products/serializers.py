@@ -7,14 +7,9 @@ from django.conf import settings
 class ProductImageSerializer(serializers.ModelSerializer):
     class Meta:
         model = ProductImage
-        fields = ['id', 'product', 'image', 'alt', 'order']  # include 'product' and 'image'
-        extra_kwargs = {
-            'product': {'required': True, 'allow_null': False},
-            'image': {'required': True, 'allow_null': False},
-        }
+        fields = ['id', 'product', 'image', 'alt', 'order']
 
     def to_representation(self, instance):
-        """Return a full Cloudinary or absolute local URL."""
         data = super().to_representation(instance)
         image = instance.image
 
@@ -31,18 +26,13 @@ class ProductImageSerializer(serializers.ModelSerializer):
                 data["image"] = None
         else:
             data["image"] = None
-
         return data
 
 
 class ProductSerializer(serializers.ModelSerializer):
-    # make category writable by using its primary key
     category = serializers.PrimaryKeyRelatedField(queryset=Category.objects.all())
     images = ProductImageSerializer(many=True, read_only=True)
-    category_obj = serializers.SerializerMethodField()
-
-    # Add a read-only computed field for the effective price
-    effective_price = serializers.SerializerMethodField(read_only=True)
+    category_obj = serializers.SerializerMethodField()  # ✅ Add method field
 
     class Meta:
         model = Product
@@ -52,22 +42,19 @@ class ProductSerializer(serializers.ModelSerializer):
             "slug",
             "description",
             "category",
+            "category_obj",     # ✅ Make sure it’s here
             "is_active",
             "sales_count",
             "price",
-            "cost",               # NEW
-            "discounted_price",   # NEW
-            "effective_price",    # NEW read-only
+            "discounted_price", # ✅ Include this if you’ve added it to the model
+            "cost",             # ✅ Include cost if added
             "stock",
             "attributes",
             "trending",
             "images",
         )
-        read_only_fields = ("slug", "sales_count", "effective_price")
+        read_only_fields = ("slug", "sales_count")
 
-    def get_effective_price(self, obj):
-        return obj.get_effective_price()
-    
     def get_category_obj(self, obj):
         """Return both subcategory and main category info."""
         cat = obj.category
@@ -81,22 +68,12 @@ class ProductSerializer(serializers.ModelSerializer):
         }
 
     def validate(self, attrs):
-        # ensure active product can't have 0 stock
         if attrs.get("is_active") and attrs.get("stock", 0) <= 0:
-            raise serializers.ValidationError(
-                "Cannot activate a product with zero stock."
-            )
-        # If discounted_price provided make sure it's not greater than price
-        dp = attrs.get("discounted_price", None)
-        price = attrs.get("price", None)
-        if dp is not None and price is not None and dp > price:
-            raise serializers.ValidationError("discounted_price cannot be greater than price.")
+            raise serializers.ValidationError("Cannot activate a product with zero stock.")
         return attrs
 
     def create(self, validated_data):
-        # auto-generate slug if missing
         if not validated_data.get("slug"):
-            from django.utils.text import slugify
             validated_data["slug"] = slugify(validated_data["title"])
         return super().create(validated_data)
 
