@@ -14,6 +14,7 @@ from products.models import Product
 from django.shortcuts import get_object_or_404
 from rest_framework.permissions import AllowAny
 from decimal import Decimal
+from rest_framework_simplejwt.authentication import JWTAuthentication
 
 
 
@@ -67,21 +68,24 @@ class OrderViewSet(viewsets.ModelViewSet):
 # -------------------------------------------------------------------------
 
 class CartViewSet(viewsets.ViewSet):
+    authentication_classes = [JWTAuthentication]
     permission_classes = [AllowAny]
 
     def _get_cart(self, request, create_if_missing=True):
         """
-        Get (or create) a cart for either logged-in user or guest session.
-        Only creates if create_if_missing=True.
+        Return (or create) a cart for either logged-in user or guest session.
+        Always prefer user cart if logged in.
         """
         user = request.user if request.user.is_authenticated else None
 
+        # Ensure session exists for guests
         if not request.session.session_key:
             request.session.save()
         session_key = request.session.session_key
 
-        # Common lookup filter
         lookup = {"status": Order.Status.PENDING}
+
+        # ✅ Prefer user-bound cart
         if user:
             lookup["user"] = user
         else:
@@ -93,6 +97,7 @@ class CartViewSet(viewsets.ViewSet):
             if create_if_missing:
                 return Order.objects.create(**lookup)
             return None
+
 
 
     def list(self, request):
@@ -194,16 +199,19 @@ class CartViewSet(viewsets.ViewSet):
     @action(detail=False, methods=["post"])
     def checkout(self, request):
         """Checkout and mark as paid"""
-        # Always use the same helper to get the cart
         cart = self._get_cart(request, create_if_missing=True)
 
         if not cart.items.exists():
             return Response({"detail": "Your cart is empty."}, status=400)
 
         shipping_address = request.data.get("shipping_address")
+        phone_number = request.data.get("phone_number")
+
         if shipping_address:
             cart.shipping_address = shipping_address
-            cart.save(update_fields=["shipping_address"])
+        if phone_number:
+            cart.phone_number = phone_number
+        cart.save(update_fields=["shipping_address", "phone_number"])
 
         try:
             cart.process_payment()
@@ -215,3 +223,4 @@ class CartViewSet(viewsets.ViewSet):
             {"detail": f"Order #{cart.id} checked out successfully!", "order": serializer.data},
             status=200,
         )
+

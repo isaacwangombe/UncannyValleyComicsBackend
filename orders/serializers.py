@@ -17,6 +17,7 @@ class OrderItemCreateSerializer(serializers.Serializer):
 class OrderCreateSerializer(serializers.Serializer):
     items = OrderItemCreateSerializer(many=True)
     shipping_address = serializers.JSONField(required=False)
+    phone_number = serializers.CharField(required=False, allow_blank=True, allow_null=True)
 
     def validate(self, data):
         for item in data["items"]:
@@ -72,7 +73,7 @@ class OrderDetailSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Order
-        fields = ["id", "status", "total", "shipping_address", "created_at", "items"]
+        fields = ["id", "status", "total","phone_number", "shipping_address", "created_at", "items"]
 
 
 # ----------------------------
