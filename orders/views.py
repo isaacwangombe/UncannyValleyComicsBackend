@@ -72,31 +72,37 @@ class CartViewSet(viewsets.ViewSet):
     permission_classes = [IsAuthenticatedOrReadOnly]
 
     def _get_cart(self, request, create_if_missing=True):
-        """
-        Return (or create) a cart for either logged-in user or guest session.
-        Always prefer user cart if logged in.
-        """
         user = request.user if request.user.is_authenticated else None
 
-        # Ensure session exists for guests
         if not request.session.session_key:
             request.session.save()
         session_key = request.session.session_key
 
         lookup = {"status": Order.Status.PENDING}
 
-        # ✅ Prefer user-bound cart
         if user:
             lookup["user"] = user
         else:
             lookup["session_key"] = session_key
 
         try:
-            return Order.objects.get(**lookup)
+            cart = Order.objects.get(**lookup)
+
+            # ✅ If user just logged in and this was a guest cart, upgrade it
+            if user and not cart.user:
+                cart.user = user
+                cart.session_key = None  # optional, to break guest link
+                cart.save(update_fields=["user", "session_key"])
+
+            return cart
+
         except Order.DoesNotExist:
             if create_if_missing:
-                return Order.objects.create(**lookup)
+                if user:
+                    return Order.objects.create(user=user, status=Order.Status.PENDING)
+                return Order.objects.create(session_key=session_key, status=Order.Status.PENDING)
             return None
+
 
 
 
