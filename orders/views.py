@@ -69,7 +69,7 @@ class OrderViewSet(viewsets.ModelViewSet):
 
 class CartViewSet(viewsets.ViewSet):
     authentication_classes = [JWTAuthentication]
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticatedOrReadOnly]
 
     def _get_cart(self, request, create_if_missing=True):
         """
@@ -201,27 +201,31 @@ class CartViewSet(viewsets.ViewSet):
         """Checkout and mark as paid"""
         cart = self._get_cart(request, create_if_missing=True)
 
+        # ✅ Attach logged-in user if authenticated
+        if request.user.is_authenticated and not cart.user:
+            cart.user = request.user
+            cart.save(update_fields=["user"])
+
         if not cart.items.exists():
             return Response({"detail": "Your cart is empty."}, status=400)
 
         shipping_address = request.data.get("shipping_address")
         phone_number = request.data.get("phone_number")
-        user_info = request.data.get("user_info")  # ✅ new field
+        user_info = request.data.get("user_info")
 
-        # ✅ Store shipping info
         if shipping_address:
             cart.shipping_address = shipping_address
         if phone_number:
             cart.phone_number = phone_number
 
-        # ✅ If backend didn't recognize user, save user info anyway
-        if not cart.user and user_info:
+        # ✅ Still store user_info for guests
+        if not request.user.is_authenticated and user_info:
             if shipping_address:
-                shipping_address["user_info"] = user_info  # keep it together
+                shipping_address["user_info"] = user_info
             else:
                 cart.shipping_address = {"user_info": user_info}
 
-        cart.save(update_fields=["shipping_address", "phone_number"])
+        cart.save(update_fields=["shipping_address", "phone_number", "user"])
 
         try:
             cart.process_payment()
@@ -236,5 +240,4 @@ class CartViewSet(viewsets.ViewSet):
             },
             status=200,
         )
-
 
