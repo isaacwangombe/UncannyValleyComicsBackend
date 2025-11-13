@@ -206,11 +206,21 @@ class CartViewSet(viewsets.ViewSet):
 
         shipping_address = request.data.get("shipping_address")
         phone_number = request.data.get("phone_number")
+        user_info = request.data.get("user_info")  # ✅ new field
 
+        # ✅ Store shipping info
         if shipping_address:
             cart.shipping_address = shipping_address
         if phone_number:
             cart.phone_number = phone_number
+
+        # ✅ If backend didn't recognize user, save user info anyway
+        if not cart.user and user_info:
+            if shipping_address:
+                shipping_address["user_info"] = user_info  # keep it together
+            else:
+                cart.shipping_address = {"user_info": user_info}
+
         cart.save(update_fields=["shipping_address", "phone_number"])
 
         try:
@@ -220,7 +230,11 @@ class CartViewSet(viewsets.ViewSet):
 
         serializer = OrderDetailSerializer(cart)
         return Response(
-            {"detail": f"Order #{cart.id} checked out successfully!", "order": serializer.data},
+            {
+                "detail": f"Order #{cart.id} checked out successfully!",
+                "order": serializer.data,
+            },
             status=200,
         )
+
 
