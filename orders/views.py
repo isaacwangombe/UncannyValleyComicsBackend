@@ -207,32 +207,28 @@ class CartViewSet(viewsets.ViewSet):
         """Checkout and mark as paid"""
         cart = self._get_cart(request, create_if_missing=True)
 
-        # ✅ Attach logged-in user if authenticated
-        if request.user.is_authenticated and not cart.user:
-            cart.user = request.user
-            cart.save(update_fields=["user"])
-
         if not cart.items.exists():
             return Response({"detail": "Your cart is empty."}, status=400)
 
-        shipping_address = request.data.get("shipping_address")
+        shipping_address = request.data.get("shipping_address", {}) or {}
         phone_number = request.data.get("phone_number")
         user_info = request.data.get("user_info")
 
-        if shipping_address:
-            cart.shipping_address = shipping_address
+        # ✅ Always include user_info in shipping_address if provided
+        if user_info:
+            shipping_address["user_info"] = user_info
+
+        # ✅ Attach user if authenticated
+        if request.user.is_authenticated and not cart.user:
+            cart.user = request.user
+
+        # ✅ Save data
+        cart.shipping_address = shipping_address
         if phone_number:
             cart.phone_number = phone_number
-
-        # ✅ Still store user_info for guests
-        if not request.user.is_authenticated and user_info:
-            if shipping_address:
-                shipping_address["user_info"] = user_info
-            else:
-                cart.shipping_address = {"user_info": user_info}
-
         cart.save(update_fields=["shipping_address", "phone_number", "user"])
 
+        # ✅ Process payment
         try:
             cart.process_payment()
         except ValueError as e:
