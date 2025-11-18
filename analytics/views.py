@@ -12,7 +12,7 @@ from django.http import JsonResponse
 from rest_framework_simplejwt.authentication import JWTAuthentication
 
 
-from orders.models import Order
+from orders.models import Order, OrderItem
 from products.models import Product
 
 User = get_user_model()
