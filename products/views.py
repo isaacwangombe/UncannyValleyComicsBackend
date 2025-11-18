@@ -58,6 +58,13 @@ class ProductViewSet(viewsets.ModelViewSet):
             status=status.HTTP_200_OK,
         )
 
+    @action(detail=False, methods=["get"], permission_classes=[permissions.IsAdminUser])
+    def low_stock(self, request):
+        """Return products with dangerously low stock (<5)"""
+        low = Product.objects.filter(stock__lt=5).values(
+            "id", "title", "stock", "sales_count"
+        )
+        return Response(list(low))
 
 @api_view(["POST"])
 @permission_classes([IsAdminUser])

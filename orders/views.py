@@ -1,7 +1,11 @@
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated, IsAuthenticatedOrReadOnly
+from rest_framework.permissions import IsAuthenticatedOrReadOnly
+from rest_framework_simplejwt.authentication import JWTAuthentication
+from django.shortcuts import get_object_or_404
+from decimal import Decimal
+
 from .models import Order, OrderItem
 from .serializers import (
     OrderCreateSerializer,
@@ -11,14 +15,10 @@ from .serializers import (
 )
 from products.models import Product
 
-from django.shortcuts import get_object_or_404
-from rest_framework.permissions import AllowAny
-from decimal import Decimal
-from rest_framework_simplejwt.authentication import JWTAuthentication
 
-
-
-
+# ============================================================
+#  ORDER VIEWSET (kept from your original file)
+# ============================================================
 class OrderViewSet(viewsets.ModelViewSet):
     queryset = Order.objects.all().select_related("user").prefetch_related("items__product")
     serializer_class = OrderCreateSerializer
@@ -63,20 +63,27 @@ class OrderViewSet(viewsets.ModelViewSet):
             return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 
-# -------------------------------------------------------------------------
-# 🛒 CART VIEWSET
-# -------------------------------------------------------------------------
-
+# ============================================================
+#  CART VIEWSET (your fixed version)
+# ============================================================
 class CartViewSet(viewsets.ViewSet):
     authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticatedOrReadOnly]
 
-    def _get_cart(self, request, create_if_missing=True):
-        user = request.user if request.user.is_authenticated else None
-
+    # ---------------------------------------------------------
+    # Ensure session exists
+    # ---------------------------------------------------------
+    def _ensure_session(self, request):
         if not request.session.session_key:
             request.session.save()
-        session_key = request.session.session_key
+        return request.session.session_key
+
+    # ---------------------------------------------------------
+    # Retrieve or create cart
+    # ---------------------------------------------------------
+    def _get_cart(self, request, create_if_missing=True):
+        user = request.user if request.user.is_authenticated else None
+        session_key = self._ensure_session(request)
 
         lookup = {"status": Order.Status.PENDING}
 
@@ -88,36 +95,36 @@ class CartViewSet(viewsets.ViewSet):
         try:
             cart = Order.objects.get(**lookup)
 
-            # ✅ If user just logged in and this was a guest cart, upgrade it
+            # upgrade guest cart → user cart
             if user and not cart.user:
                 cart.user = user
-                cart.session_key = None  # optional, to break guest link
+                cart.session_key = session_key
                 cart.save(update_fields=["user", "session_key"])
 
             return cart
 
         except Order.DoesNotExist:
-            if create_if_missing:
-                if user:
-                    return Order.objects.create(user=user, status=Order.Status.PENDING)
-                return Order.objects.create(session_key=session_key, status=Order.Status.PENDING)
-            return None
+            if not create_if_missing:
+                return None
 
+            if user:
+                return Order.objects.create(user=user, session_key=session_key)
+            return Order.objects.create(session_key=session_key)
 
-
-
+    # ---------------------------------------------------------
+    # GET /cart/
+    # ---------------------------------------------------------
     def list(self, request):
-        """View current cart contents"""
         cart = self._get_cart(request, create_if_missing=False)
         if not cart:
             return Response({"detail": "Cart is empty."}, status=200)
-        serializer = CartSerializer(cart)
-        return Response(serializer.data)
+        return Response(CartSerializer(cart).data)
 
-
+    # ---------------------------------------------------------
+    # POST /cart/add_item/
+    # ---------------------------------------------------------
     @action(detail=False, methods=["post"])
     def add_item(self, request):
-        """Add or update an item in the cart"""
         cart = self._get_cart(request)
         serializer = CartItemSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -125,9 +132,8 @@ class CartViewSet(viewsets.ViewSet):
         product = serializer.validated_data["product"]
         quantity = serializer.validated_data["quantity"]
 
-        eff_price = product.get_effective_price() if product.get_effective_price() is not None else product.price
+        eff_price = product.get_effective_price() or product.price
 
-        # Only create or update cart item — no stock/sales logic here
         item, created = OrderItem.objects.get_or_create(
             order=cart,
             product=product,
@@ -139,29 +145,31 @@ class CartViewSet(viewsets.ViewSet):
             item.save(update_fields=["quantity"])
 
         cart.recalculate_total()
-        return Response(CartSerializer(cart).data, status=status.HTTP_200_OK)
+        return Response(CartSerializer(cart).data)
 
-
-
+    # ---------------------------------------------------------
+    # POST /cart/remove_item/
+    # ---------------------------------------------------------
     @action(detail=False, methods=["post"], url_path="remove_item")
     def remove_item(self, request):
-        """Remove an item from the cart"""
-        cart = self._get_cart(request, create_if_missing=True)
+        cart = self._get_cart(request)
         item_id = request.data.get("item_id")
 
         try:
-            item = cart.items.get(id=item_id)  # ✅ fixed
+            item = cart.items.get(id=item_id)
             item.delete()
             cart.recalculate_total()
-            return Response(CartSerializer(cart).data)
         except OrderItem.DoesNotExist:
             return Response({"error": "Item not in cart"}, status=404)
 
+        return Response(CartSerializer(cart).data)
 
+    # ---------------------------------------------------------
+    # POST /cart/decrease_item/
+    # ---------------------------------------------------------
     @action(detail=False, methods=["post"])
     def decrease_item(self, request):
-        """Decrease quantity of an item"""
-        cart = self._get_cart(request, create_if_missing=True)
+        cart = self._get_cart(request)
         product_id = request.data.get("product_id")
 
         try:
@@ -174,23 +182,27 @@ class CartViewSet(viewsets.ViewSet):
             item.delete()
         else:
             item.save(update_fields=["quantity"])
+
         cart.recalculate_total()
         return Response(CartSerializer(cart).data)
 
+    # ---------------------------------------------------------
+    # POST /cart/increase_item/
+    # ---------------------------------------------------------
     @action(detail=False, methods=["post"])
     def increase_item(self, request):
-        """Increase quantity or add new item"""
-        cart = self._get_cart(request, create_if_missing=True)
+        cart = self._get_cart(request)
         product_id = request.data.get("product_id")
 
         product = get_object_or_404(Product, id=product_id)
-        eff_price = product.get_effective_price() if product.get_effective_price() is not None else product.price
+        eff_price = product.get_effective_price() or product.price
 
         item, created = OrderItem.objects.get_or_create(
             order=cart,
             product=product,
-            defaults={"quantity": 1, "unit_price": eff_price}
+            defaults={"quantity": 1, "unit_price": eff_price},
         )
+
         if not created:
             item.quantity += 1
             item.save(update_fields=["quantity"])
@@ -198,48 +210,31 @@ class CartViewSet(viewsets.ViewSet):
         cart.recalculate_total()
         return Response(CartSerializer(cart).data)
 
-
-    # -------------------------------------------------------------------------
-    # 💳 CHECKOUT
-    # -------------------------------------------------------------------------
+    # ---------------------------------------------------------
+    # POST /cart/checkout/
+    # ---------------------------------------------------------
     @action(detail=False, methods=["post"])
     def checkout(self, request):
-        """Checkout and mark as paid"""
-        cart = self._get_cart(request, create_if_missing=True)
+        cart = self._get_cart(request)
 
         if not cart.items.exists():
             return Response({"detail": "Your cart is empty."}, status=400)
 
         shipping_address = request.data.get("shipping_address", {}) or {}
         phone_number = request.data.get("phone_number")
-        user_info = request.data.get("user_info")
 
-        # ✅ Always include user_info in shipping_address if provided
-        if user_info:
-            shipping_address["user_info"] = user_info
-
-        # ✅ Attach user if authenticated
-        if request.user.is_authenticated and not cart.user:
+        if request.user.is_authenticated:
             cart.user = request.user
 
-        # ✅ Save data
         cart.shipping_address = shipping_address
         if phone_number:
             cart.phone_number = phone_number
+
         cart.save(update_fields=["shipping_address", "phone_number", "user"])
 
-        # ✅ Process payment
         try:
             cart.process_payment()
         except ValueError as e:
             return Response({"detail": str(e)}, status=400)
 
-        serializer = OrderDetailSerializer(cart)
-        return Response(
-            {
-                "detail": f"Order #{cart.id} checked out successfully!",
-                "order": serializer.data,
-            },
-            status=200,
-        )
-
+        return Response({"detail": "Checkout successful!"}, status=200)

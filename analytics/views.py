@@ -1,4 +1,4 @@
-from rest_framework import viewsets
+from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAdminUser
@@ -9,6 +9,7 @@ from django.utils import timezone
 from datetime import timedelta
 from analytics.models import Visitor
 from django.http import JsonResponse
+from rest_framework_simplejwt.authentication import JWTAuthentication
 
 
 from orders.models import Order
@@ -18,14 +19,14 @@ User = get_user_model()
 
 
 class AnalyticsViewSet(viewsets.ViewSet):
-
+    authentication_classes = [JWTAuthentication]
     permission_classes = [IsAdminUser]
     def list(self, request):
         print("🔍 AUTH TEST → user:", request.user)
         print("🔍 is_authenticated:", request.user.is_authenticated)
         print("🔍 is_staff:", getattr(request.user, "is_staff", None))
         print("🔍 is_superuser:", getattr(request.user, "is_superuser", None))
-        return response.Response({"detail": "debug"}, status=status.HTTP_200_OK)
+        return Response({"detail": "debug"}, status=status.HTTP_200_OK)
     # -------------------------------------------------------------------------
     # 1️⃣ STATS OVERVIEW
     # -------------------------------------------------------------------------
@@ -155,3 +156,44 @@ class AnalyticsViewSet(viewsets.ViewSet):
 
         return Response({"daily": daily, "monthly": monthly})
 
+
+    @action(detail=False, methods=["get"])
+    def top_products_by_category(self, request):
+        """Return top products filtered by category"""
+        category_id = request.query_params.get("category")
+
+        qs = Product.objects.all()
+        if category_id:
+            qs = qs.filter(category_id=category_id)
+
+        products = (
+            qs.order_by("-sales_count")
+            .values("id", "title", "sales_count", "price", "category_id")[:10]
+        )
+
+        return Response(list(products))
+    
+
+
+    @action(detail=False, methods=["get"])
+    def profit(self, request):
+        """Return revenue, cost total, and net profit"""
+        paid_orders = Order.objects.filter(status=Order.Status.PAID)
+
+        revenue = paid_orders.aggregate(total=Sum("total"))["total"] or 0
+
+        # Compute total cost based on OrderItems
+        items = OrderItem.objects.filter(order__status=Order.Status.PAID).select_related("product")
+
+        total_cost = 0
+        for item in items:
+            if item.product.cost:
+                total_cost += item.product.cost * item.quantity
+
+        profit = revenue - total_cost
+
+        return Response({
+            "revenue": revenue,
+            "cost": total_cost,
+            "profit": profit,
+        })
