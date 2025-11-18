@@ -14,6 +14,8 @@ from .serializers import ContactMessageSerializer, MailingListSerializer
 @api_view(["POST"])
 @permission_classes([AllowAny])
 def send_contact_message(request):
+    print("CONTACT FORM RECEIVED:", request.data)  # ⬅ ADD THIS
+
     serializer = ContactMessageSerializer(data=request.data)
     serializer.is_valid(raise_exception=True)
     msg = serializer.save()
@@ -23,7 +25,7 @@ def send_contact_message(request):
         f"New Contact Message From: {msg.email}",
         msg.message,
         settings.DEFAULT_FROM_EMAIL,
-        ["inmariga@gmail.com"],
+        ["uvcomicbooks@gmail.com"],
     )
 
     return Response({"success": True})
