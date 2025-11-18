@@ -2,15 +2,13 @@ from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAdminUser
-from django.db.models import Sum, Count
+from django.db.models import Sum, Count, F
 from django.db.models.functions import TruncDate, TruncMonth
 from django.contrib.auth import get_user_model
 from django.utils import timezone
 from datetime import timedelta
 from analytics.models import Visitor
-from django.http import JsonResponse
 from rest_framework_simplejwt.authentication import JWTAuthentication
-
 
 from orders.models import Order, OrderItem
 from products.models import Product
@@ -21,174 +19,230 @@ User = get_user_model()
 class AnalyticsViewSet(viewsets.ViewSet):
     authentication_classes = [JWTAuthentication]
     permission_classes = [IsAdminUser]
-    def list(self, request):
-        print("🔍 AUTH TEST → user:", request.user)
-        print("🔍 is_authenticated:", request.user.is_authenticated)
-        print("🔍 is_staff:", getattr(request.user, "is_staff", None))
-        print("🔍 is_superuser:", getattr(request.user, "is_superuser", None))
-        return Response({"detail": "debug"}, status=status.HTTP_200_OK)
-    # -------------------------------------------------------------------------
-    # 1️⃣ STATS OVERVIEW
-    # -------------------------------------------------------------------------
+
+    # ------------------------------------------------------------
+    # Helper: timeframe range
+    # ------------------------------------------------------------
+    def get_date_range(self, request):
+        r = request.query_params.get("range", "30")
+
+        if r == "all":
+            return None
+
+        try:
+            days = int(r)
+        except ValueError:
+            days = 30
+
+        return timezone.now() - timedelta(days=days)
+
+    # ------------------------------------------------------------
+    # FILTERED Dashboard Stats
+    # ------------------------------------------------------------
     @action(detail=False, methods=["get"])
     def stats(self, request):
-        """Get overall store metrics"""
-        total_sales = (
-            Order.objects.filter(status=Order.Status.PAID)
-            .aggregate(total=Sum("total"))["total"]
-            or 0
-        )
-        total_orders = Order.objects.filter(status=Order.Status.PAID).count()
-        total_users = User.objects.count()
-        top_product = Product.objects.order_by("-sales_count").first()
+        cutoff = self.get_date_range(request)
 
-        return Response(
-            {
-                "total_sales": total_sales,
-                "total_orders": total_orders,
-                "total_users": total_users,
-                "top_product": {
-                    "id": top_product.id,
-                    "title": top_product.title,
-                    "sales_count": top_product.sales_count,
-                }
-                if top_product
-                else None,
-            }
+        orders = Order.objects.filter(status=Order.Status.PAID)
+        if cutoff:
+            orders = orders.filter(created_at__gte=cutoff)
+
+        total_sales = orders.aggregate(total=Sum("total"))["total"] or 0
+        total_orders = orders.count()
+
+        # Users registered within period
+        if cutoff:
+            total_users = User.objects.filter(date_joined__gte=cutoff).count()
+        else:
+            total_users = User.objects.count()
+
+        # Top product (filtered)
+        top_product = (
+            OrderItem.objects.filter(order__in=orders)
+            .values("product_id", "product__title")
+            .annotate(sales_count=Sum("quantity"))
+            .order_by("-sales_count")
+            .first()
         )
 
-    # -------------------------------------------------------------------------
-    # 2️⃣ DAILY SALES (for past 30 days)
-    # -------------------------------------------------------------------------
-    @action(detail=False, methods=["get"])
-    def daily_sales(self, request):
-        """Return daily revenue totals for the past 30 days"""
-        since = timezone.now() - timedelta(days=30)
-        sales = (
-            Order.objects.filter(status=Order.Status.PAID, created_at__gte=since)
-            .annotate(date=TruncDate("created_at"))
-            .values("date")
-            .annotate(total=Sum("total"))
-            .order_by("date")
-        )
-        return Response(list(sales))
+        return Response({
+            "total_sales": total_sales,
+            "total_orders": total_orders,
+            "total_users": total_users,
+            "top_product": {
+                "id": top_product["product_id"],
+                "title": top_product["product__title"],
+                "sales_count": top_product["sales_count"]
+            } if top_product else None,
+        })
 
-    # -------------------------------------------------------------------------
-    # 3️⃣ MONTHLY SALES (for the past 12 months)
-    # -------------------------------------------------------------------------
+    # ------------------------------------------------------------
+    # FILTERED Monthly Sales
+    # ------------------------------------------------------------
     @action(detail=False, methods=["get"])
     def monthly_sales(self, request):
-        """Return monthly revenue totals for the last 12 months"""
-        since = timezone.now() - timedelta(days=365)
+        cutoff = self.get_date_range(request)
+
+        qs = Order.objects.filter(status=Order.Status.PAID)
+
+        if cutoff:
+            qs = qs.filter(created_at__gte=cutoff)
+
         monthly = (
-            Order.objects.filter(status=Order.Status.PAID, created_at__gte=since)
-            .annotate(month=TruncMonth("created_at"))
+            qs.annotate(month=TruncMonth("created_at"))
             .values("month")
             .annotate(total=Sum("total"))
             .order_by("month")
         )
+
         return Response(list(monthly))
 
-    # -------------------------------------------------------------------------
-    # 4️⃣ SALES OVER TIME (CUMULATIVE)
-    # -------------------------------------------------------------------------
+    # ------------------------------------------------------------
+    # FILTERED Sales Over Time (Cumulative)
+    # ------------------------------------------------------------
     @action(detail=False, methods=["get"])
     def sales_over_time(self, request):
-        """Return cumulative sales over time for charting growth"""
-        since = timezone.now() - timedelta(days=180)
-        daily = (
-            Order.objects.filter(status=Order.Status.PAID, created_at__gte=since)
-            .annotate(date=TruncDate("created_at"))
+        cutoff = self.get_date_range(request)
+
+        qs = Order.objects.filter(status=Order.Status.PAID)
+        if cutoff:
+            qs = qs.filter(created_at__gte=cutoff)
+
+        qs = (
+            qs.annotate(date=TruncDate("created_at"))
             .values("date")
             .annotate(total=Sum("total"))
             .order_by("date")
         )
 
-        cumulative = []
-        running_total = 0
-        for day in daily:
-            running_total += day["total"] or 0
-            cumulative.append({
-                "date": day["date"],
-                "cumulative_total": running_total
+        cumulative = 0
+        data = []
+
+        for row in qs:
+            cumulative += float(row["total"])
+            data.append({
+                "date": row["date"],
+                "cumulative_total": cumulative,
             })
 
-        return Response(cumulative)
+        return Response(data)
 
-    # -------------------------------------------------------------------------
-    # 5️⃣ NEW USERS TREND
-    # -------------------------------------------------------------------------
+    # ------------------------------------------------------------
+    # FILTERED Profit Over Time (Cumulative + grouped by day)
+    # ------------------------------------------------------------
     @action(detail=False, methods=["get"])
-    def new_users(self, request):
-        """Return new registered users grouped by date"""
-        users = (
-            User.objects.annotate(date=TruncDate("date_joined"))
-            .values("date")
-            .annotate(count=Count("id"))
-            .order_by("date")
-        )
-        return Response(list(users))
+    def profit_over_time(self, request):
+        cutoff = self.get_date_range(request)
 
-    # -------------------------------------------------------------------------
-    # 6️⃣ TOP PRODUCTS
-    # -------------------------------------------------------------------------
+        orders = Order.objects.filter(status=Order.Status.PAID)
+        if cutoff:
+            orders = orders.filter(created_at__gte=cutoff)
+
+        # Group by date
+        daily = {}
+
+        for order in orders:
+            d = order.created_at.date()
+
+            items = OrderItem.objects.filter(order=order).select_related("product")
+            cost = sum(
+                (item.product.cost or 0) * item.quantity
+                for item in items
+            )
+
+            profit = float(order.total) - float(cost)
+
+            daily.setdefault(d, 0)
+            daily[d] += profit
+
+        # Build cumulative list
+        cumulative = 0
+        output = []
+
+        for d in sorted(daily.keys()):
+            cumulative += daily[d]
+            output.append({
+                "date": d,
+                "profit": daily[d],
+                "cumulative_profit": cumulative,
+            })
+
+        return Response(output)
+
+    # ------------------------------------------------------------
+    # FILTERED Order Status Summary
+    # ------------------------------------------------------------
     @action(detail=False, methods=["get"])
-    def top_products(self, request):
-        """Return top 5 selling products"""
-        products = (
-            Product.objects.order_by("-sales_count")
-            .values("id", "title", "sales_count", "price")[:5]
-        )
-        return Response(list(products))
-    
-    # -------------------------------------------------------------------------
-    # 7️⃣ VISITOR STATS (DAILY / MONTHLY)
-    # -------------------------------------------------------------------------
-    @action(detail=False, methods=["get"])
-    def visitors(self, request):
-        """Return daily and monthly unique visitor counts"""
-        now = timezone.now()
-        since_day = now - timedelta(days=1)
-        since_month = now - timedelta(days=30)
+    def order_status_summary(self, request):
+        cutoff = self.get_date_range(request)
 
-        daily = Visitor.objects.filter(visited_at__gte=since_day).count()
-        monthly = Visitor.objects.filter(visited_at__gte=since_month).count()
+        qs = Order.objects.all()
+        if cutoff:
+            qs = qs.filter(created_at__gte=cutoff)
 
-        return Response({"daily": daily, "monthly": monthly})
+        data = {
+            key: qs.filter(status=key).count()
+            for key, _ in Order.Status.choices
+        }
 
+        return Response(data)
 
+    # ------------------------------------------------------------
+    # FILTERED Top Products by Category
+    # ------------------------------------------------------------
     @action(detail=False, methods=["get"])
     def top_products_by_category(self, request):
-        """Return top products filtered by category"""
-        category_id = request.query_params.get("category")
+        cutoff = self.get_date_range(request)
+        category_param = request.query_params.get("category")
 
-        qs = Product.objects.all()
-        if category_id:
-            qs = qs.filter(category_id=category_id)
+        items = OrderItem.objects.filter(order__status=Order.Status.PAID)
+
+        if cutoff:
+            items = items.filter(order__created_at__gte=cutoff)
+
+        if category_param:
+            ids = [int(x) for x in category_param.split(",") if x.isdigit()]
+            items = items.filter(product__category_id__in=ids)
 
         products = (
-            qs.order_by("-sales_count")
-            .values("id", "title", "sales_count", "price", "category_id")[:10]
+            items.values("product_id", "product__title")
+            .annotate(sales_count=Sum("quantity"))
+            .order_by("-sales_count")[:10]
         )
 
-        return Response(list(products))
-    
+        formatted = [
+            {
+                "id": p["product_id"],
+                "title": p["product__title"],
+                "sales_count": p["sales_count"],
+            }
+            for p in products
+        ]
 
+        return Response(formatted)
 
+    # ------------------------------------------------------------
+    # FILTERED Profit Summary
+    # ------------------------------------------------------------
     @action(detail=False, methods=["get"])
     def profit(self, request):
-        """Return revenue, cost total, and net profit"""
-        paid_orders = Order.objects.filter(status=Order.Status.PAID)
+        cutoff = self.get_date_range(request)
 
-        revenue = paid_orders.aggregate(total=Sum("total"))["total"] or 0
+        paid = Order.objects.filter(status=Order.Status.PAID)
+        if cutoff:
+            paid = paid.filter(created_at__gte=cutoff)
 
-        # Compute total cost based on OrderItems
-        items = OrderItem.objects.filter(order__status=Order.Status.PAID).select_related("product")
+        revenue = paid.aggregate(total=Sum("total"))["total"] or 0
 
-        total_cost = 0
-        for item in items:
-            if item.product.cost:
-                total_cost += item.product.cost * item.quantity
+        items = (
+            OrderItem.objects.filter(order__in=paid)
+            .select_related("product")
+        )
+
+        total_cost = sum(
+            (item.product.cost or 0) * item.quantity
+            for item in items
+        )
 
         profit = revenue - total_cost
 
@@ -197,3 +251,17 @@ class AnalyticsViewSet(viewsets.ViewSet):
             "cost": total_cost,
             "profit": profit,
         })
+
+    # ------------------------------------------------------------
+    # Visitors
+    # ------------------------------------------------------------
+    @action(detail=False, methods=["get"])
+    def visitors(self, request):
+        now = timezone.now()
+        since_day = now - timedelta(days=1)
+        since_month = now - timedelta(days=30)
+
+        daily = Visitor.objects.filter(visited_at__gte=since_day).count()
+        monthly = Visitor.objects.filter(visited_at__gte=since_month).count()
+
+        return Response({"daily": daily, "monthly": monthly})

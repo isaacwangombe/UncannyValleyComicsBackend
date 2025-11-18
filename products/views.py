@@ -255,23 +255,59 @@ def bulk_upload_products(request):
 @permission_classes([IsAdminUser])
 def download_sample_excel(request):
     """
-    📄 Downloadable sample Excel with SKU formula and sample fields.
+    📄 Download a sample Excel that matches the CURRENT bulk upload format.
+    Includes:
+        - title
+        - description
+        - price
+        - cost
+        - discounted_price
+        - stock
+        - category_slug
+        - trending
+        - images (comma separated filenames or URLs)
+        - sku (auto-generated example)
     """
     data = {
         "title": ["Example Product"],
-        "description": ["Short description"],
-        "price": [9.99],
-        "stock": [10],
+        "description": ["Short description here"],
+        
+        # Pricing fields
+        "price": [19.99],
+        "cost": [10.00],                   # NEW
+        "discounted_price": [14.99],       # NEW
+
+        # Stock
+        "stock": [25],
+
+        # Category
         "category_slug": ["example-category"],
+
+        # Boolean
         "trending": [False],
+
+        # Images: URLs or ZIP filenames
         "images": ["example1.jpg, example1(2).jpg"],
-        "sku": ["=UPPER(LEFT(SUBSTITUTE(A2,\" \",\"\"),5)) & \"-\" & TEXT(ROW(A2)-1,\"000\")"],
+
+        # SKU formula (Excel will autogenerate)
+        "sku": [
+            '=UPPER(LEFT(SUBSTITUTE(A2," ",""),5)) & "-" & TEXT(ROW(A2)-1,"000")'
+        ],
     }
 
     df = pd.DataFrame(data)
     output = io.BytesIO()
+
     with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
         df.to_excel(writer, index=False, sheet_name="Products")
+
+        # Auto-size columns
+        workbook  = writer.book
+        worksheet = writer.sheets["Products"]
+
+        for i, column in enumerate(df.columns):
+            col_width = max(df[column].astype(str).map(len).max(), len(column)) + 2
+            worksheet.set_column(i, i, col_width)
 
     output.seek(0)
     response = HttpResponse(

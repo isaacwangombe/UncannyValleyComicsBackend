@@ -64,6 +64,7 @@ INSTALLED_APPS = [
     "orders",
      "accounts",
      "analytics",
+     "contact",
     "events",
     'cloudinary',
     'cloudinary_storage',
@@ -115,6 +116,7 @@ REST_FRAMEWORK = {
         "rest_framework.filters.SearchFilter",
         "rest_framework.filters.OrderingFilter",
     ),
+    
 }
 
 REST_USE_JWT = True  # if you use dj-rest-auth
