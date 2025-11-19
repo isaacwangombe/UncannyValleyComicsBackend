@@ -6,7 +6,18 @@ class ContactMessageSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = ContactMessage
-        fields = ["first_name", "last_name", "email", "message", "subscribe"]
+        fields = [
+            "id",
+            "first_name",
+            "last_name",
+            "email",
+            "message",
+            "subscribed",
+            "replied",
+            "created_at",
+            "subscribe",
+        ]
+        read_only_fields = ["id", "created_at", "replied"]
 
     def create(self, validated_data):
         subscribe = validated_data.pop("subscribe", False)

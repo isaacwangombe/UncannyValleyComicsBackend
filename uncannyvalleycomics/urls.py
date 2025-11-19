@@ -41,8 +41,7 @@ urlpatterns = [
     # Django Admin
     path("admin/", admin.site.urls),
 
-    path("api/contact/", include("contact.urls")),
-
+    path("api/contact/", include(("contact.urls", "contact"))),
     # 🔐 JWT Authentication
     path("api/auth/token/", TokenObtainPairView.as_view(), name="token_obtain_pair"),
     path("api/auth/token/refresh/", TokenRefreshView.as_view(), name="token_refresh"),
