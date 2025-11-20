@@ -371,5 +371,8 @@ logging.getLogger("allauth").addHandler(logging.StreamHandler())
 
 STATIC_ROOT = BASE_DIR / "staticfiles"
 
+# Base URL for links inside emails / QR codes
+SITE_URL = "http://127.0.0.1:8000"   # Local dev
 
-
+if not DEBUG:
+    SITE_URL = "https://uncanny-valley-comics-backend.onrender.com"

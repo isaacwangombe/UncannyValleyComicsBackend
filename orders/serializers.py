@@ -1,3 +1,4 @@
+# orders/serializers.py
 from rest_framework import serializers
 from django.db import transaction
 from .models import Order, OrderItem
@@ -6,9 +7,6 @@ from products.serializers import ProductSerializer
 from decimal import Decimal
 
 
-# ----------------------------
-# ORDER CREATION SERIALIZERS
-# ----------------------------
 class OrderItemCreateSerializer(serializers.Serializer):
     product_id = serializers.IntegerField()
     quantity = serializers.IntegerField(min_value=1)
@@ -56,9 +54,6 @@ class OrderCreateSerializer(serializers.Serializer):
             return order
 
 
-# ----------------------------
-# ORDER OUTPUT SERIALIZERS
-# ----------------------------
 class OrderItemSerializer(serializers.ModelSerializer):
     product = ProductSerializer(read_only=True)
 
@@ -76,9 +71,6 @@ class OrderDetailSerializer(serializers.ModelSerializer):
         fields = ["id", "status", "total","phone_number", "shipping_address", "created_at", "items"]
 
 
-# ----------------------------
-# CART SERIALIZERS
-# ----------------------------
 class CartItemSerializer(serializers.ModelSerializer):
     product = ProductSerializer(read_only=True)
     product_id = serializers.PrimaryKeyRelatedField(
@@ -86,7 +78,7 @@ class CartItemSerializer(serializers.ModelSerializer):
         source="product",
         write_only=True
     )
-    quantity = serializers.IntegerField(min_value=1)  # ✅ explicitly required
+    quantity = serializers.IntegerField(min_value=1)
 
     class Meta:
         model = OrderItem

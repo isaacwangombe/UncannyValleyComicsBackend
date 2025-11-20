@@ -1,8 +1,15 @@
+# products/models.py
 from django.db import models
+import uuid
 from django.utils.text import slugify
 from django.core.validators import MinValueValidator
 from cloudinary.models import CloudinaryField
 from decimal import Decimal
+from django.conf import settings
+
+# Hard-coded category IDs (per your request)
+UPCOMING_CATEGORY_ID = 10
+PAST_CATEGORY_ID = 9
 
 
 class Category(models.Model):
@@ -33,7 +40,6 @@ class Product(models.Model):
     price = models.DecimalField(
         max_digits=10, decimal_places=2, validators=[MinValueValidator(Decimal("0.00"))]
     )
-    # NEW: product cost (how much the product costs you)
     cost = models.DecimalField(
         max_digits=10,
         decimal_places=2,
@@ -42,7 +48,6 @@ class Product(models.Model):
         null=True,
         help_text="Cost price (optional)",
     )
-    # NEW: discounted price (optional). If set, this becomes the selling price.
     discounted_price = models.DecimalField(
         max_digits=10,
         decimal_places=2,
@@ -52,8 +57,9 @@ class Product(models.Model):
         help_text="If set, this price is used instead of `price` for sales",
     )
 
+    # stock acts as capacity/seats for events
     stock = models.IntegerField(default=0)
-    attributes = models.JSONField(blank=True, null=True)  # optional flexible metadata
+    attributes = models.JSONField(blank=True, null=True)
     trending = models.BooleanField(default=False)
 
     created_at = models.DateTimeField(auto_now_add=True)
@@ -63,12 +69,12 @@ class Product(models.Model):
         return self.title
 
     def get_effective_price(self):
-        """Return the price used for sales: discounted_price if present, else price."""
         return self.discounted_price if self.discounted_price is not None else self.price
 
     def save(self, *args, **kwargs):
         if not self.slug:
             self.slug = slugify(self.title)
+        # auto-deactivate when out of stock
         if self.stock <= 0:
             self.is_active = False
         else:
@@ -78,7 +84,7 @@ class Product(models.Model):
 
 class ProductImage(models.Model):
     product = models.ForeignKey(Product, related_name="images", on_delete=models.CASCADE)
-    image = CloudinaryField("image", folder="product_images/")  # ✅ Use Cloudinary natively
+    image = CloudinaryField("image", folder="product_images/")
     alt = models.CharField(max_length=150, blank=True)
     order = models.PositiveSmallIntegerField(default=0)
 
@@ -86,9 +92,25 @@ class ProductImage(models.Model):
         return f"Image for {self.product.title}"
 
     def delete(self, *args, **kwargs):
-        """Delete image from Cloudinary when record is removed."""
         from cloudinary.uploader import destroy
 
         if self.image and hasattr(self.image, "public_id"):
             destroy(self.image.public_id)
         super().delete(*args, **kwargs)
+
+
+class EventExtension(models.Model):
+    """
+    1:1 extension attached to Product for event-specific fields.
+    NOTE: capacity removed — use Product.stock as capacity/seats.
+    """
+    product = models.OneToOneField(Product, related_name="event_data", on_delete=models.CASCADE)
+    start = models.DateTimeField()
+    end = models.DateTimeField(null=True, blank=True)
+    location = models.CharField(max_length=250, blank=True)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"Event data for {self.product.title}"
+

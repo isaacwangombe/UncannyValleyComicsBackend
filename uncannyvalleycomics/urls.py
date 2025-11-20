@@ -7,9 +7,9 @@ from products.views import (
     ProductImageViewSet,
     download_sample_excel,
     bulk_upload_products,
-    whoami,
+    # whoami,
 )
-from orders.views import OrderViewSet, CartViewSet
+from orders.views import OrderViewSet, CartViewSet, verify_event_ticket, scan_ticket
 from analytics.views import AnalyticsViewSet
 from accounts.views import CustomUserDetailsView, CustomUserAdminViewSet
 from users.views import google_login_redirect, full_logout
@@ -42,6 +42,9 @@ urlpatterns = [
     path("admin/", admin.site.urls),
 
     path("api/contact/", include(("contact.urls", "contact"))),
+    path("api/events/verify/<uuid:code>/", verify_event_ticket, name="verify-ticket"),
+    path("api/events/scan/<uuid:code>/", scan_ticket),
+
     # 🔐 JWT Authentication
     path("api/auth/token/", TokenObtainPairView.as_view(), name="token_obtain_pair"),
     path("api/auth/token/refresh/", TokenRefreshView.as_view(), name="token_refresh"),
@@ -62,7 +65,7 @@ urlpatterns = [
     path("api/health/", lambda request: JsonResponse({"status": "ok"}), name="health_check"),
 
     # 🧮 Misc endpoints
-    path("api/whoami/", whoami),
+    # path("api/whoami/", whoami),
     path("api/products/download-sample-excel/", download_sample_excel, name="download-sample-excel"),
     path("api/products/bulk-upload/", bulk_upload_products, name="bulk-upload-products"),
 
